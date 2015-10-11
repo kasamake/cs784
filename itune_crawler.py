@@ -13,12 +13,27 @@ from time import sleep
 
 DOMAIN = 'https://itunes.apple.com/us/genre/'
 GENRES = (
-         #'books-baseball/id10121?mt=11',
+         'books-baseball/id10121?mt=11',
          'books-basketball/id10122?mt=11',
-         # 'books-boxing/id11054?mt=11',
-         # 'books-coaching/id10123?mt=11',
-         #'books-cricket/id11055?mt=11',
+         'books-football/id10125?mt=11',
+         'books-golf/id10126?mt=11',
+         'books-mountaineering/id10128?mt=11',
+         'books-outdoors/id10129?mt=11',
+         'books-soccer/id10132?mt=11',
+         'books-training/id10133?mt=11',
+         'books-water-sports/id10134?mt=11',
+         'books-winter-sports/id10135?mt=11',
         )
+# basketball - https://itunes.apple.com/us/genre/books-basketball/id10122?mt=11
+# baseball - https://itunes.apple.com/us/genre/books-baseball/id10121?mt=11
+# football - https://itunes.apple.com/us/genre/books-football/id10125?mt=11
+# golf - https://itunes.apple.com/us/genre/books-golf/id10126?mt=11
+# mountaineering - https://itunes.apple.com/us/genre/books-mountaineering/id10128?mt=11
+# outdoor - https://itunes.apple.com/us/genre/books-outdoors/id10129?mt=11
+# soccer - https://itunes.apple.com/us/genre/books-soccer/id10132?mt=11
+# training - https://itunes.apple.com/us/genre/books-training/id10133?mt=11
+# water sports - https://itunes.apple.com/us/genre/books-water-sports/id10134?mt=11
+# winter sports - https://itunes.apple.com/us/genre/books-winter-sports/id10135?mt=11
 
 class ItuneSpider(scrapy.Spider):
     letter_dir = ''
@@ -40,11 +55,6 @@ class ItuneSpider(scrapy.Spider):
                 request.meta['letterDir'] = self.letter_dir
                 yield request
 
-        # print("##################")
-        # url = 'https://itunes.apple.com/us/book/the-boys-in-the-boat/id580630645?mt=11'
-        # yield scrapy.Request(url, callback=self.parse_page, meta={'ldr':self.letter_dir})
-
-
     def parse_page(self, response):
         for href in response.css('.grid3-column ul li a::attr(href)'):
             url = href.extract()
@@ -61,10 +71,7 @@ class ItuneSpider(scrapy.Spider):
         id = url[id_start+3:id_end]
         self.dump_file(url,response.body,letter_dir)
         sel = Selector(response)
-        title = sel.xpath('//div[@id="title"]/div/h1[1]/text()').extract_first()
-
         rating_stars = len(sel.xpath('//div[@id="left-stack"]//span[@class="rating-star"]'))*1.0 + len(sel.xpath('//div[@id="left-stack"]//span[@class="rating-star half"]'))*0.5
-
         description = BeautifulSoup(sel.xpath('//div[@itemprop="description"]//p').extract_first()).text
         yield {
             'id': id,
@@ -72,7 +79,6 @@ class ItuneSpider(scrapy.Spider):
             'title': sel.xpath('//div[@id="title"]/div/h1[1]/text()').extract_first(),
             'author': sel.xpath('//div[@id="title"]/div/h2/span/text()').extract_first(),
             'short_description': sel.xpath('//div[@id="title"]/div/h3/span/text()').extract_first(),
-            # 'description': sel.xpath('//div[@itemprop="description"]//p').extract_first(),
             'description': description,
             'price': sel.xpath('//div[@class="price"]/text()').extract_first(),
             'genre': sel.xpath('//li[@class="genre"]/a/span[@itemprop="genre"]/text()').extract_first(),
@@ -91,7 +97,6 @@ class ItuneSpider(scrapy.Spider):
         file_name = path+'/'+url + '.html'
         with open(file_name, 'w') as dump:
             dump.write(body)
-    # scrapy runspider itune_crawler.py -o itune_books.json
 
     def make_dir(self,path):
         if not os.path.exists(path):
