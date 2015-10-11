@@ -3,16 +3,21 @@ __author__ = 'Kasama'
 import scrapy
 import os
 import string
+from bs4 import BeautifulSoup
+
 from scrapy.selector import Selector
 from string import ascii_uppercase
+
 # from scrapy.http import HtmlResponse
-# from time import sleep
+from time import sleep
 
 DOMAIN = 'https://itunes.apple.com/us/genre/'
 GENRES = (
-        # 'books-baseball/id10121?mt=11',
-        'books-basketball/id10122?mt=11',
-        # 'books-boxing/id11054?mt=11',
+         #'books-baseball/id10121?mt=11',
+         'books-basketball/id10122?mt=11',
+         # 'books-boxing/id11054?mt=11',
+         # 'books-coaching/id10123?mt=11',
+         #'books-cricket/id11055?mt=11',
         )
 
 class ItuneSpider(scrapy.Spider):
@@ -25,52 +30,50 @@ class ItuneSpider(scrapy.Spider):
             genre_url = DOMAIN + genre
             genre_dir = genre[:genre.find('/')]
             self.make_dir(genre_dir)
-            # for letter in ascii_uppercase+'*':
-            for letter in 'A':
+            for letter in ascii_uppercase+'*':
                 letter_url = genre_url + '&letter=' + letter
                 if letter == '*':
                     letter = '0'
                 self.letter_dir = genre_dir+"/"+letter
                 self.make_dir(self.letter_dir)
-                print letter_url
-                yield scrapy.Request(letter_url, callback=self.parse_page)
-        # for href in response.css('.grid3-column ul li a::attr(href)'):
-        #     url = href.extract()
-        #     yield scrapy.Request(url, callback=self.parse_page)
+                request = scrapy.Request(letter_url, callback=self.parse_page)
+                request.meta['letterDir'] = self.letter_dir
+                yield request
 
+        # print("##################")
         # url = 'https://itunes.apple.com/us/book/the-boys-in-the-boat/id580630645?mt=11'
-        # print(url)
-        # yield scrapy.Request(url, callback=self.parse_page)
+        # yield scrapy.Request(url, callback=self.parse_page, meta={'ldr':self.letter_dir})
+
 
     def parse_page(self, response):
         for href in response.css('.grid3-column ul li a::attr(href)'):
             url = href.extract()
-            print(url)
-            yield scrapy.Request(url, callback=self.parse_item)
+            sleep(2)
+            request = scrapy.Request(url, callback=self.parse_item)
+            request.meta['letterDir'] = response.meta['letterDir']
+            yield request
 
     def parse_item(self, response):
-        print(self.letter_dir)
+        letter_dir = response.meta['letterDir']
         url = response.url
-        id_start = url.find('id')
+        id_start = url.find('/id')
         id_end = url.find('?')
-        id = url[id_start+2:id_end]
-        print(id)
-        self.dump_file(url,response.body,self.letter_dir)
+        id = url[id_start+3:id_end]
+        self.dump_file(url,response.body,letter_dir)
         sel = Selector(response)
         title = sel.xpath('//div[@id="title"]/div/h1[1]/text()').extract_first()
-        print(title)
 
         rating_stars = len(sel.xpath('//div[@id="left-stack"]//span[@class="rating-star"]'))*1.0 + len(sel.xpath('//div[@id="left-stack"]//span[@class="rating-star half"]'))*0.5
-        print 'rating: '
-        print rating_stars
-        # *1.0 + len(sel.xpath('//div[@id="left-stack"]//span[@class="rating-star half"]'))*0.5)
+
+        description = BeautifulSoup(sel.xpath('//div[@itemprop="description"]//p').extract_first()).text
         yield {
             'id': id,
             'url': sel.xpath('//head/link[@rel="canonical"]/@href').extract()[0],
             'title': sel.xpath('//div[@id="title"]/div/h1[1]/text()').extract_first(),
             'author': sel.xpath('//div[@id="title"]/div/h2/span/text()').extract_first(),
             'short_description': sel.xpath('//div[@id="title"]/div/h3/span/text()').extract_first(),
-            'description': sel.xpath('//div[@itemprop="description"]//p').extract_first(),
+            # 'description': sel.xpath('//div[@itemprop="description"]//p').extract_first(),
+            'description': description,
             'price': sel.xpath('//div[@class="price"]/text()').extract_first(),
             'genre': sel.xpath('//li[@class="genre"]/a/span[@itemprop="genre"]/text()').extract_first(),
             'date': sel.xpath('//li/span[@itemprop="dateCreated"]/text()').extract_first(),
